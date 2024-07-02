@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<body>
+    <div id="graphDiv"></div>
+    
+    <script type="module">
+        import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+        const DEFAULT_TREE = JSON.parse('[{"id":"1","parents":[]},{"id":"2","parents":["1"]},{"id":"3","parents":["2"]},{"id":"4","parents":["3"]},{"id":"5","parents":["3","8"]},{"id":"6","parents":["5"]},{"id":"7","parents":["6"]},{"id":"8","parents":[]},{"id":"9","parents":["8"]},{"id":"10","parents":["9","13","21"]},{"id":"11","parents":[]},{"id":"12","parents":["11"]},{"id":"13","parents":["12"]},{"id":"14","parents":[]},{"id":"15","parents":["14"]},{"id":"16","parents":[]},{"id":"17","parents":["16"]},{"id":"18","parents":[]},{"id":"19","parents":["18"]},{"id":"20","parents":["19"]},{"id":"21","parents":["20"]},{"id":"22","parents":["20"]},{"id":"23","parents":["22"]},{"id":"24","parents":["10"]},{"id":"25","parents":["7"]},{"id":"26","parents":["17"]},{"id":"27","parents":["22"]},{"id":"28","parents":["27"]},{"id":"29","parents":[]},{"id":"30","parents":["11"]},{"id":"31","parents":[]},{"id":"32","parents":["31"]},{"id":"33","parents":["31"]},{"id":"34","parents":["33"]},{"id":"35","parents":["34"]},{"id":"36","parents":["35"]},{"id":"37","parents":["35"]},{"id":"38","parents":["35"]},{"id":"39","parents":["36"]},{"id":"40","parents":["36", "37"]},{"id":"41","parents":["37"]},{"id":"42","parents":["37"]},{"id":"43","parents":["40", "28"]},{"id":"44","parents":[]},{"id":"45","parents":["44"]},{"id":"46","parents":["44"]},{"id":"47","parents":["44", "45"]},{"id":"48","parents":["45", "47"]},{"id":"49","parents":["45"]},{"id":"50","parents":["49"]}]');
+        const GRAPH_NODE_CALLBACK_FN_NAME = "graphNodeClickHandler";
+        const EVENT_QUEUE = [[]]
+        mermaid.initialize({ startOnLoad: false, securityLevel: "loose" });
+
+        window[GRAPH_NODE_CALLBACK_FN_NAME] = (id) => {
+            calculateClosure(id, true)
+            draw();
+        }
+
+        const loadDefaultTree = () => {
+            const treeObj = {}
+            DEFAULT_TREE.forEach(i => (treeObj[i.id] =
+            {
+                ...i,
+                children: DEFAULT_TREE.filter(j => j.parents.includes(i.id)).map(j => j.id),
+                closure: {
+                    closed: false,
+                    direct: false,
+                    fromParents: [],
+                    fromChildren: false
+                }
+            }));
+            return treeObj;
+        }
+
+        const tree2Graph = (tree) => {
+            let graphDefinition = 'flowchart TB\n';
+            for (const id in tree) {
+                const v = tree[id];
+                graphDefinition += `    ${id}[Record]\n`
+                graphDefinition += `    click ${id} ${GRAPH_NODE_CALLBACK_FN_NAME} "${JSON.stringify(v).replace(/"/g, "'")}"\n`
+                if (v.closure.direct) graphDefinition += `    style ${id} fill:#ff0000,stroke:#333,stroke-width:4px\n`;
+                else if (v.closure.closed) graphDefinition += `    style ${id} fill:#ff6666,stroke:#333,stroke-width:4px\n`;
+                v.children.forEach(childId => {
+                    graphDefinition += `    ${id} --> ${childId}\n`
+                });
+            }
+            return graphDefinition;
+        }
+
+        const renderDiagram = async (graphDefinition) => {
+            const graphDiv = document.getElementById("graphDiv");
+            const { svg, bindFunctions } = await mermaid.render("graph", graphDefinition);
+            graphDiv.innerHTML = svg;
+            if (bindFunctions) {
+                bindFunctions(graphDiv);
+            }
+        };
+
+        const draw = async () => {
+            const graph = tree2Graph(TREE);
+            await renderDiagram(graph);
+        }
+
+        const enqueue = (data) => {
+            EVENT_QUEUE[0].push(data);
+        }
+
+        const dequeue = () => {
+            EVENT_QUEUE.push([]);
+            return EVENT_QUEUE.shift();
+        }
+
+        const calculateClosure = (id, toggleClosure) => {
+            const current = TREE[id];
+            const parents = current.parents.map(parentId => TREE[parentId]);
+            const children = current.children.map(childId => TREE[childId]);
+            const originalStatus = JSON.stringify(current.closure);
+
+            // If I have a direct closure, I am closed.
+            // Changing direct closure requires comparision of old+new image
+            if (toggleClosure) TREE[id].closure.direct = !TREE[id].closure.direct;
+
+            // If a child is closed, I am closed. Unless the child is closed because I was closed.
+            const closedChildrensClosedParents = children.reduce((acc, i) => [...acc, ...i.closure.fromParents], []);
+            const childIsClosedForOtherParent = closedChildrensClosedParents.length > 0 ? !closedChildrensClosedParents.every(i => i==id) : false;
+            const closedChild = children.find(i => i.closure.direct || i.closure.fromChildren);
+            if (closedChild || childIsClosedForOtherParent) {
+                TREE[id].closure.fromChildren = true;
+            } else {
+                TREE[id].closure.fromChildren = false;
+            }
+
+            // If a parent is closed from above or directly, I am closed.
+            const closedParents = parents.filter(i => i.closure.direct || i.closure.fromParents.length > 0);
+            if (closedParents.length > 0) {
+                TREE[id].closure.fromParents = closedParents.map(i => i.id)
+            } else {
+                TREE[id].closure.fromParents = [];
+            }
+
+            TREE[id].closure.closed = [TREE[id].closure.direct, TREE[id].closure.fromParents.length, TREE[id].closure.fromChildren].some(Boolean);
+            if (originalStatus != JSON.stringify(TREE[id].closure)) {
+                // If there's been a change to my closure result, send events to process my parents and children.
+                enqueue(id) // Mocks an entity update event for this entity.
+                current.parents.forEach(enqueue);
+                current.children.forEach(enqueue);
+            }
+            
+        }
+
+        const TREE = await loadDefaultTree();
+        await draw();
+        while (true) {
+            if(EVENT_QUEUE.length > 0) {
+                const events = dequeue();
+                events.forEach(id => calculateClosure(id))
+                await draw();
+            }
+            await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        
+    </script>
+</body>
+</html>
