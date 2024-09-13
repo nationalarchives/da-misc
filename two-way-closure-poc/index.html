@@ -2,7 +2,7 @@
 <html lang="en">
 <body>
     <div id="graphDiv"></div>
-    
+
     <script type="module">
         import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
         const DEFAULT_TREE = JSON.parse('[{"id":"1","parents":[]},{"id":"2","parents":["1"]},{"id":"3","parents":["2"]},{"id":"4","parents":["3"]},{"id":"5","parents":["3","8"]},{"id":"6","parents":["5"]},{"id":"7","parents":["6"]},{"id":"8","parents":[]},{"id":"9","parents":["8"]},{"id":"10","parents":["9","13","21"]},{"id":"11","parents":[]},{"id":"12","parents":["11"]},{"id":"13","parents":["12"]},{"id":"14","parents":[]},{"id":"15","parents":["14"]},{"id":"16","parents":[]},{"id":"17","parents":["16"]},{"id":"18","parents":[]},{"id":"19","parents":["18"]},{"id":"20","parents":["19"]},{"id":"21","parents":["20"]},{"id":"22","parents":["20"]},{"id":"23","parents":["22"]},{"id":"24","parents":["10"]},{"id":"25","parents":["7"]},{"id":"26","parents":["17"]},{"id":"27","parents":["22"]},{"id":"28","parents":["27"]},{"id":"29","parents":[]},{"id":"30","parents":["11"]},{"id":"31","parents":[]},{"id":"32","parents":["31"]},{"id":"33","parents":["31"]},{"id":"34","parents":["33"]},{"id":"35","parents":["34"]},{"id":"36","parents":["35"]},{"id":"37","parents":["35"]},{"id":"38","parents":["35"]},{"id":"39","parents":["36"]},{"id":"40","parents":["36", "37"]},{"id":"41","parents":["37"]},{"id":"42","parents":["37"]},{"id":"43","parents":["40", "28"]},{"id":"44","parents":[]},{"id":"45","parents":["44"]},{"id":"46","parents":["44"]},{"id":"47","parents":["44", "45"]},{"id":"48","parents":["45", "47"]},{"id":"49","parents":["45"]},{"id":"50","parents":["49"]}]');
@@ -104,7 +104,6 @@
                 current.parents.forEach(enqueue);
                 current.children.forEach(enqueue);
             }
-            
         }
 
         const TREE = await loadDefaultTree();
@@ -117,7 +116,7 @@
             }
             await new Promise(resolve => setTimeout(resolve, 500))
         }
-        
+
     </script>
 </body>
 </html>
